@@ -1,68 +1,41 @@
-name: action-name
+name: check-commit
 author: gendloop
-description: 'action description'
-inputs:
-# Required
-  version:
-    description: 'New version. e.g. v0.0.0'
-    required: true
-    default: 'v0.0.0'
-  token:
-    description: 'Personal token'
-    required: true
-    default: ${{ github.token }}
-# Optional
-  branch:
-    description: 'branch'
-    required: false
-    default: main
+description: "Commit message check"
 
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
-    - name: checkout-repo
+    - name: checkout
       uses: actions/checkout@v3
-      with:
-        token: ${{ inputs.token }}
-        fetch-depth: 0
 
-    - name: setup-node
-      uses: actions/setup-node@v3
-      with:
-        node-version: 16.x
-
-    - name: add-release-log
+    - name: get-commit-message
       shell: bash
-      run: npx changelogithub
-      env:
-        GITHUB_TOKEN: ${{ inputs.token }}
-
-    - name: cmd
-      shell: bash
-      working-directory: ${{ github.workspace }}
-      env:
-          GITHUB_TOKEN: ${{ inputs.token }}
       run: |
-        git config --global user.name "$GITHUB_ACTOR"
-        git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
-        git checkout ${{ inputs.branch }}
-        git pull
-        repo_name=${GITHUB_REPOSITORY#*/}
-        version=${{ inputs.version }}
-        echo $repo_name
-        echo $version
-        if [[ ${version} =~ ^v(.*)\.(.*)\.(.*) ]]
-        then
-          major=${BASH_REMATCH[1]}
-          minor=${BASH_REMATCH[2]}
-          patch=${BASH_REMATCH[3]}
+        commit_message=$(git log -1 --pretty=format:'%s')
+        echo "Commit message: $commit_message"
+
+        # 正则表达式检查提交信息格式
+        if [[ ! "$commit_message" =~ ^(fix|feat|chore|ci|docs|style|refactor|test)(\(\S+\))?\!?:\ .+ ]]; then
+          echo "::error::Commit message does not follow the correct format:"
+          echo "●"
+          echo "<type>[optional scope]: <description>"
+          echo "○"
+          echo "type"
+          echo "■ fix      -- 解决bug"
+          echo "■ feat     -- 添加新功能"
+          echo "■ chore    -- 不重要的"
+          echo "■ ci       -- workflow更新"
+          echo "■ docs     -- 说明文档等更新"
+          echo "■ style    -- 样式等更新"
+          echo "■ refactor -- 重构"
+          echo "■ test     -- 测试代码等更新"
+          echo "●"
+          echo "<type>[optional scope]! : <description>"
+          echo "●"
+          echo "加!表示是重大更新;"
+          echo "●"
+          echo "注意在!和<description>之间有一个空格"
+          echo "●"
+          echo ": 冒号是英文输入法下的符号, 不是中文输入法下的符号"
+          exit 1
         fi
-        echo $major $minor $patch
-        echo "" > config.txt
-        echo "PROJECT_NAME=${repo_name}" >> config.txt
-        echo "${repo_name}_VERSION_MAJOR=${major}" >> config.txt
-        echo "${repo_name}_VERSION_MINOR=${minor}" >> config.txt
-        echo "${repo_name}_VERSION_PATCH=${patch}" >> config.txt
-        git add .
-        (git commit -m "chore: release VERSION ${{ inputs.version }} ") || true
-        (git push) || true

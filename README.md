@@ -1,3 +1,3 @@
 # check-commit
 
-[Action_Name.yml](Action_Name.yml)
+[Check_Commit.yml](.github/workflows/Check_Commit.yml)
