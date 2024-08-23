@@ -15,7 +15,7 @@ runs:
         echo "::notice::Commit message: $commit_message"
 
         # 正则表达式检查提交信息格式
-        if [[ ! "$commit_message" =~ ^(fix|feat|chore|ci|docs|style|refactor|test)(\(\S+\))?\!?:\ .+ ]] && [[ ! "$commit_message" =~ ^Merge\ branch\ .+ ]]; then
+        if [[ ! "$commit_message" =~ ^(fix|feat|chore|ci|docs|style|refactor|test)(\([a-zA-Z_]+\))?\!?:\ .+ ]] && [[ ! "$commit_message" =~ ^Merge\ branch\ .+ ]]; then
           echo "::error::Commit message does not follow the correct format:"
           echo "::warning::● <type>[optional scope]: <description>"
           echo "::warning::  ○ type"

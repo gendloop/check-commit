@@ -1,0 +1,83 @@
+name: check-commit
+author: gendloop
+description: "Commit message check"
+
+runs:
+  using: "composite"
+  steps:
+    - name: checkout
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: get-current-commit-hash
+      id: get-current-commit-hash
+      shell: bash
+      run: |
+        current_commit_hash=$(git rev-parse HEAD)
+        echo "curr_commit_hash=$current_commit_hash" >> "$GITHUB_OUTPUT"
+        echo "Current commit hash: $current_commit_hash"
+
+    - name: restore-previous-commit-hash
+      uses: actions/cache/restore@v4
+      with:
+        path: .commit_hash_cache
+        key: commit-hash-cache
+
+    - name: check-previous-commit-hash
+      id: check-previous-commit-hash
+      shell: bash
+      run: |
+        cache_file=".commit_hash_cache"
+        if [ -f "$cache_file" ]; then
+          previous_commit_hash=$(cat $cache_file)
+          echo "prev_commit_hash=$previous_commit_hash" >> "$GITHUB_OUTPUT"
+          echo "Previous commit hash found: $previous_commit_hash"
+        else
+          echo "No previous commit hash found."
+        fi
+
+    - name: cache-current-commit-hash
+      shell: bash
+      run: |
+        echo ${{ steps.get-current-commit-hash.outputs.curr_commit_hash }} > .commit_hash_cache
+
+    - name: save-cache
+      uses: actions/cache/save@v4
+      if: always()
+      with:
+        path: .commit_hash_cache
+        key: commit-hash-cache
+
+    - name: check-commit-messages
+      shell: bash
+      run: |
+        if [ -n "${{ steps.check-previous-commit-hash.outputs.prev_commit_hash }}" ]; then
+          commit_messages=$(git log ${{ steps.check-previous-commit-hash.outputs.prev_commit_hash }}..${{ steps.get-current-commit-hash.outputs.curr_commit_hash }} --pretty=format:'%s')
+        else
+          commit_messages=$(git log -1 --pretty=format:'%s')
+        fi
+        echo "Commit messages between previous and current commit:"
+        echo "$commit_messages"
+        IFS=$'\n'
+        for commit_message in $commit_messages; do
+          echo "::notice::Checking commit message: $commit_message"
+          if [[ ! "$commit_message" =~ ^(fix|feat|chore|ci|docs|style|refactor|test)(\([a-zA-Z_]+\))?\!?:\ .+ ]] && [[ ! "$commit_message" =~ ^Merge\ branch\ .+ ]]; then
+            echo "::error::Commit message does not follow the correct format:"
+            echo "::warning::● <type>[optional scope]: <description>"
+            echo "::warning::  ○ type"
+            echo "::warning::    ■ fix      -- 解决bug"
+            echo "::warning::    ■ feat     -- 添加新功能"
+            echo "::warning::    ■ chore    -- 不重要的"
+            echo "::warning::    ■ ci       -- workflow更新"
+            echo "::warning::    ■ docs     -- 说明文档等更新"
+            echo "::warning::    ■ style    -- 样式等更新"
+            echo "::warning::    ■ refactor -- 重构"
+            echo "::warning::    ■ test     -- 测试代码等更新"
+            echo "::warning::● <type>[optional scope]!: <description>"
+            echo "::warning::  ○ 加!表示是重大更新;"
+            echo "::warning::  ○ 注意在!:和<description>之间有一个空格"
+            echo "::warning::● 冒号是英文输入法下的符号, 不是中文输入法下的符号"
+            exit 1
+          fi
+        done
