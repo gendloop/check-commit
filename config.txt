@@ -2,4 +2,4 @@
 PROJECT_NAME=check-commit
 check-commit_VERSION_MAJOR=1
 check-commit_VERSION_MINOR=0
-check-commit_VERSION_PATCH=0
+check-commit_VERSION_PATCH=1
